@@ -1,0 +1,8 @@
+[package]
+name = "playa"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+cpal = "0.15.3"
+rodio = "0.20.1"
