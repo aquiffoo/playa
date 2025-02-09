@@ -59,7 +59,6 @@ fn main() {
     let running_viz = Arc::clone(&running);
     let audio_data_viz = Arc::clone(&audio_data);
     let elapsed_time = Arc::new(Mutex::new(Duration::new(0, 0)));
-    let elapsed_time_clone = Arc::clone(&elapsed_time);
     let sink_viz = Arc::clone(&sink);
     let track_length_for_viz = track_length;
 
@@ -92,6 +91,68 @@ fn main() {
         }
     });
 
+    let sink_cmd = Arc::clone(&sink);
+    let running_cmd = Arc::clone(&running);
+    let cmd_handle = thread::spawn(move || {
+        let stdin = io::stdin();
+        let mut paused = false;
+        for line in stdin.lock().lines() {
+            let buffer = line.unwrap();
+            match buffer.trim() {
+                "" => {
+                    if paused {
+                        sink_cmd.play();
+                        paused = false;
+                        println!("Now playing track");
+                        print!("{esc}[2J{esc}[1;1H", esc = 27 as char);
+                    } else {
+                        sink_cmd.pause();
+                        paused = true;
+                        println!("Paused");
+                        print!("{esc}[2J{esc}[1;1H", esc = 27 as char);
+                    }
+                }
+                "stop" => {
+                    running_cmd.store(false, Ordering::Relaxed);
+                    break;
+                }
+                "ArrowUp" | "w" => {
+                    let current_volume = sink_cmd.volume();
+                    sink_cmd.set_volume((current_volume + 0.1).min(1.0));
+                }
+                "ArrowDown" | "s" => {
+                    let current_volume = sink_cmd.volume();
+                    sink_cmd.set_volume((current_volume - 0.1).max(0.0));
+                }
+                "ArrowLeft" | "a" => {
+                    let current_time = sink_cmd.get_pos();
+                    let new_time = current_time
+                        .checked_sub(Duration::from_secs(5))
+                        .unwrap_or(Duration::new(0, 0));
+                    sink_cmd.try_seek(new_time).unwrap();
+                }
+                "ArrowRight" | "d" => {
+                    let current_time = sink_cmd.get_pos();
+                    sink_cmd.try_seek(current_time + Duration::from_secs(5)).unwrap();
+                }
+                "0.5" => {
+                    sink_cmd.set_speed(0.5);
+                }
+                "1" => {
+                    sink_cmd.set_speed(1.0);
+                }
+                "1.5" => {
+                    sink_cmd.set_speed(1.5);
+                }
+                "2" => {
+                    sink_cmd.set_speed(2.0);
+                }
+                _ => {}
+            }
+        }
+        running_cmd.store(false, Ordering::Relaxed)
+    });
+    
     while running.load(Ordering::Relaxed) {
         thread::sleep(Duration::from_millis(100));
         if let Some(total) = track_length {
@@ -107,50 +168,8 @@ fn main() {
         }
     }
 
-    let stdin = io::stdin();
-    let mut paused = false;
-    let value = sink.get_pos();
-    for line in stdin.lock().lines() {
-        let buffer = line.unwrap();
-        if buffer.trim().is_empty() {
-            if paused {
-                sink.play();
-                paused = false;
-                println!("Now playing track");
-                print!("{esc}[2J{esc}[1;1H", esc = 27 as char);
-            } else {
-                sink.pause();
-                paused = true;
-                println!("Paused");
-                print!("{esc}[2J{esc}[1;1H", esc = 27 as char);
-            }
-        } else if buffer.trim() == "stop" {
-            running.store(false, Ordering::Relaxed);
-            break;
-        } else if buffer.trim() == "ArrowUp" || buffer.trim() == "w" {
-            let current_volume = sink.volume();
-            sink.set_volume((current_volume + 0.1).min(1.0));
-        } else if buffer.trim() == "ArrowDown" || buffer.trim() == "s" {
-            let current_volume = sink.volume();
-            sink.set_volume((current_volume - 0.1).max(0.0));
-        } else if buffer.trim() == "ArrowLeft" || buffer.trim() == "a" {
-            let current_time = value;
-            sink.try_seek(current_time - Duration::from_secs(5)).unwrap();
-        } else if buffer.trim() == "ArrowRight" || buffer.trim() == "d" {
-            let current_time = value;
-            sink.try_seek(current_time + Duration::from_secs(5)).unwrap();
-        } else if buffer.trim() == "0.5" {
-            sink.set_speed(0.5);
-        } else if buffer.trim() == "1" {
-            sink.set_speed(1.0);
-        } else if buffer.trim() == "1.5" {
-            sink.set_speed(1.5);
-        } else if buffer.trim() == "2" {
-            sink.set_speed(2.0);
-        }
-    }
-    viz_handle.join().unwrap();
-
+    let _ = cmd_handle.join();
+    let _ = viz_handle.join();
 }
 
 fn fft(signal: &[f32]) -> Vec<f32> {
@@ -169,7 +188,7 @@ fn fft(signal: &[f32]) -> Vec<f32> {
 
 fn view(spectrum: &[f32]) {
     for &value in spectrum {
-        let bar = "⬜".repeat((value.abs() * 10.0) as usize);
+        let bar = "=".repeat((value.abs() * 10.0) as usize);
         println!("{}", bar);
     }
 }
