@@ -8,9 +8,33 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::io::Read;
 use std::f32::consts::PI;
 use std::{thread, time::Duration};
+use std::path::Path;
+use std::process::Command;
 
 fn clear() {
     print!("{esc}[2J{esc}[1;1H", esc = 27 as char);
+}
+
+fn render_video(path:&str) {
+    clear();
+    println!("🏖️: {}", path);
+    let status = Command::new("ffmpeg")
+        .args(&[
+            "-i",
+            path,
+            "-vf",
+            "scale=480:-1",
+            "-pix_fmt",
+            "rgb24",
+            "-f",
+            "caca",
+            "-"
+        ])
+        .status()
+        .expect("Failed to launch ffmpeg process");
+    if !status.success() {
+        eprintln!("FFmpeg exited with error.");
+    }
 }
 
 fn main() {
@@ -18,6 +42,13 @@ fn main() {
     let argv1 = std::env::args()
         .nth(1)
         .expect("🏖️: No file path provided!");
+    let path = argv1.clone();
+    if let Some(ext) = Path::new(&argv1).extension() {
+        if ext == "mp4" || ext == "avi" || ext == "mov" {
+            render_video(&path);
+            return;
+        }
+    }
     let (_stream, stream_handler) = rodio::OutputStream::try_default().unwrap();
     let file = File::open(argv1).unwrap();
     let reader = BufReader::new(file);
