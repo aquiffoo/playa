@@ -2,10 +2,7 @@
 
 playa is an audio/video processing tool that supports playing audio files and rendering video files using ffmpeg's caca output
 
-<video controls>
-    <source src="./demo.mp4" type="video/mp4">
-    Your browser does not support the video tag.
-</video>
+[![playa-rs Demo](https://cdnaquiffoo.vercel.app/playa-demo1.png)](https://cdnaquiffoo.vercel.app/playa-demo1.mp4)
 
 ## Features
 - play audio (mp3, wav, etc.)
