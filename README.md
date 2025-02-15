@@ -16,6 +16,7 @@ cargo run [file_path]
 ## Dependencies
 - rodio
 - cpal
+- [ffmpeg](https://www.ffmpeg.org/)
 
 ## License
 This project is licensed under the MIT License.
