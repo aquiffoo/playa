@@ -25,7 +25,7 @@ fn render_video(path:&str) {
             "-i",
             path,
             "-vf",
-            "scale=480:-1",
+            "scale=1080:-1",
             "-pix_fmt",
             "rgb24",
             "-f",

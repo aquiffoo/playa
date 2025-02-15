@@ -2,6 +2,11 @@
 
 playa is an audio/video processing tool that supports playing audio files and rendering video files using ffmpeg's caca output
 
+<video controls>
+    <source src="./demo.mp4" type="video/mp4">
+    Your browser does not support the video tag.
+</video>
+
 ## Features
 - play audio (mp3, wav, etc.)
 - play video (mp4, mov, avi)
