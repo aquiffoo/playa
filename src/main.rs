@@ -1,5 +1,7 @@
 use std::fs::File;
 use std::io::{self, BufReader, BufRead, Write};
+use std::process::Stdio;
+use std::io::Cursor;
 use rodio::Source;
 use rodio::source::SamplesConverter;
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
@@ -18,7 +20,7 @@ fn clear() {
 fn render_video(path:&str) {
     clear();
     println!("🏖️: {}", path);
-    let status = Command::new("ffmpeg")
+    let mut video_child = Command::new("ffmpeg")
         .args(&[
             "-i",
             path,
@@ -28,13 +30,37 @@ fn render_video(path:&str) {
             "rgb24",
             "-f",
             "caca",
+            "-loglevel",
+            "quiet",
             "-"
         ])
-        .status()
-        .expect("Failed to launch ffmpeg process");
-    if !status.success() {
-        eprintln!("FFmpeg exited with error.");
-    }
+        .spawn()
+        .expect("🏖️: Failed to launch ffmpeg process");
+
+    let audio_child = Command::new("ffmpeg")
+        .args(&[
+            "-i",
+            path,
+            "-f",
+            "wav",
+            "-loglevel",
+            "quiet",
+            "pipe:1"
+        ])
+        .stdout(Stdio::piped())
+        .spawn()
+        .expect("🏖️: Failed to launch ffmpeg audio process");
+
+    let mut stdout = audio_child.stdout.expect("Failed to capture audio output");
+    let mut audio_bytes = Vec::new();
+    stdout.read_to_end(&mut audio_bytes).expect("Failed to read audio data");
+    let cursor = Cursor::new(audio_bytes);
+    let decoder = rodio::Decoder::new(BufReader::new(cursor)).unwrap();
+    let (_stream, stream_handle) = rodio::OutputStream::try_default().unwrap();
+    let sink = rodio::Sink::try_new(&stream_handle).unwrap();
+    sink.append(decoder);
+    sink.sleep_until_end();
+    let _ = video_child.wait();
 }
 
 fn main() {
